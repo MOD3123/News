@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sweet.tv — Free Kanály</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: rgba(255,255,255,0.06);
+    --accent: #e8412a;
+    --accent2: #ff6b4a;
+    --text: #e8e8f0;
+    --muted: #6b6b7e;
+    --card-h: 100px;
+    --sidebar-w: 280px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 24px;
+    height: 58px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+  .logo sub {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 2px;
+    margin-left: 6px;
+    vertical-align: super;
+    text-transform: uppercase;
+  }
+  #search {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    width: 220px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+  .hdr-time {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* ── LAYOUT ── */
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  aside {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .cat-title {
+    padding: 14px 18px 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .cat-list { overflow-y: auto; flex: 1; }
+  .cat-list::-webkit-scrollbar { width: 3px; }
+  .cat-list::-webkit-scrollbar-track { background: transparent; }
+  .cat-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .cat-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 18px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .cat-btn:hover { color: var(--text); background: var(--surface2); }
+  .cat-btn.active { color: var(--accent2); border-left-color: var(--accent); background: rgba(232,65,42,0.07); }
+  .cat-icon { font-size: 16px; width: 22px; text-align: center; }
+  .cat-count {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--surface2);
+    padding: 2px 7px;
+    border-radius: 10px;
+    color: var(--muted);
+  }
+  .cat-btn.active .cat-count { background: rgba(232,65,42,0.2); color: var(--accent2); }
+
+  /* ── CHANNEL LIST ── */
+  .ch-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .ch-header {
+    padding: 14px 18px 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ch-header h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .ch-count { font-size: 13px; color: var(--muted); }
+  .ch-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px;
+  }
+  .ch-list::-webkit-scrollbar { width: 3px; }
+  .ch-list::-webkit-scrollbar-track { background: transparent; }
+  .ch-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .ch-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s;
+    border: 1px solid transparent;
+    margin-bottom: 3px;
+  }
+  .ch-card:hover { background: var(--surface2); }
+  .ch-card.active {
+    background: rgba(232,65,42,0.1);
+    border-color: rgba(232,65,42,0.3);
+  }
+  .ch-logo-wrap {
+    width: 52px;
+    height: 36px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface2);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .ch-logo {
+    max-width: 48px;
+    max-height: 32px;
+    object-fit: contain;
+    filter: brightness(0.9);
+  }
+  .ch-info { flex: 1; min-width: 0; }
+  .ch-name {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+  .ch-now {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  .ch-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(232,65,42,0.15);
+    color: var(--accent2);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  /* ── PLAYER PANEL ── */
+  .player-panel {
+    width: 520px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .player-wrap {
+    position: relative;
+    background: #000;
+    aspect-ratio: 16/9;
+    flex-shrink: 0;
+  }
+  #video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+  }
+  .player-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .play-hint {
+    text-align: center;
+    opacity: 0.4;
+  }
+  .play-hint-icon { font-size: 40px; display: block; margin-bottom: 8px; }
+  .play-hint-text {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  video:not([src=""]) + .player-overlay,
+  video[src]:not([src=""]) ~ .player-overlay { display: none; }
+
+  /* player info */
+  .player-info {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .player-ch-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+  .player-status {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 5px;
+    min-height: 16px;
+  }
+  .player-status.live::before {
+    content: '● ';
+    color: #4caf7d;
+  }
+  .player-status.archive::before {
+    content: '⏺ ';
+    color: var(--accent);
+  }
+  .player-status.loading::before {
+    content: '○ ';
+    color: var(--muted);
+  }
+  .player-status.error::before {
+    content: '✕ ';
+    color: var(--accent);
+  }
+
+  /* EPG / archive section */
+  .epg-section {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .epg-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .epg-tab {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+  }
+  .epg-tab:hover { color: var(--text); }
+  .epg-tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+
+  /* archive date picker */
+  .archive-ctrl {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .archive-ctrl label { font-size: 12px; color: var(--muted); }
+  .archive-ctrl input[type=date] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    outline: none;
+    flex: 1;
+    cursor: pointer;
+    color-scheme: dark;
+  }
+  .archive-ctrl input[type=date]:focus { border-color: var(--accent); }
+
+  .epg-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 6px 8px;
+  }
+  .epg-list::-webkit-scrollbar { width: 3px; }
+  .epg-list::-webkit-scrollbar-track { background: transparent; }
+  .epg-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .epg-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .epg-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 6px;
+    cursor: default;
+    transition: background .15s;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .epg-item.has-archive {
+    cursor: pointer;
+  }
+  .epg-item.has-archive:hover {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+  .epg-item.current {
+    background: rgba(232,65,42,0.08);
+    border-color: rgba(232,65,42,0.2);
+  }
+  .epg-item.playing-archive {
+    background: rgba(232,65,42,0.15);
+    border-color: rgba(232,65,42,0.4);
+  }
+  .epg-time {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    color: var(--muted);
+    white-space: nowrap;
+    min-width: 42px;
+    padding-top: 1px;
+  }
+  .epg-item.current .epg-time { color: var(--accent2); }
+  .epg-body { flex: 1; min-width: 0; }
+  .epg-title {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .epg-dur {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .epg-arch-icon {
+    font-size: 14px;
+    color: var(--muted);
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+  .epg-item.has-archive:hover .epg-arch-icon { color: var(--accent2); }
+  .epg-item.playing-archive .epg-arch-icon { color: var(--accent); }
+
+  /* loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive */
+  @media (max-width: 1100px) {
+    .player-panel { width: 400px; }
+  }
+  @media (max-width: 900px) {
+    aside { width: 56px; }
+    .cat-btn { padding: 10px; justify-content: center; }
+    .cat-btn span:not(.cat-icon), .cat-count, .cat-title { display: none; }
+    .player-panel { width: 340px; }
+  }
+  @media (max-width: 700px) {
+    .player-panel { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Sweet<span>.</span>tv <sub>free</sub></div>
+  <input id="search" type="text" placeholder="Hľadaj kanál…" autocomplete="off">
+  <div class="hdr-time" id="clock"></div>
+</header>
+
+<div class="app-body">
+
+  <aside>
+    <div class="cat-title">Kategórie</div>
+    <div class="cat-list" id="cat-list"></div>
+  </aside>
+
+  <div class="ch-panel">
+    <div class="ch-header">
+      <h2 id="cat-heading">Všetky kanály</h2>
+      <span class="ch-count" id="ch-count-label"></span>
+    </div>
+    <div class="ch-list" id="ch-list"></div>
+  </div>
+
+  <div class="player-panel">
+    <div class="player-wrap">
+      <video id="video" controls></video>
+      <div class="player-overlay">
+        <div class="play-hint">
+          <span class="play-hint-icon">📺</span>
+          <span class="play-hint-text">Vyber kanál</span>
+        </div>
+      </div>
+    </div>
+    <div class="player-info">
+      <div class="player-ch-name" id="pl-name">—</div>
+      <div class="player-status" id="pl-status"></div>
+    </div>
+    <div class="epg-section">
+      <div class="epg-tabs">
+        <button class="epg-tab active" id="tab-live" onclick="switchTab('live')">📡 Live EPG</button>
+        <button class="epg-tab" id="tab-archive" onclick="switchTab('archive')">🕐 Archív</button>
+      </div>
+      <div id="archive-ctrl" class="archive-ctrl" style="display:none;">
+        <label>Dátum:</label>
+        <input type="date" id="arch-date">
+        <button onclick="loadArchiveEpg()" style="background:var(--accent);border:none;color:#fff;padding:5px 12px;border-radius:5px;cursor:pointer;font-family:Barlow,sans-serif;font-size:13px;">Načítať</button>
+      </div>
+      <div class="epg-list" id="epg-list">
+        <div class="epg-empty">Vyber kanál pre EPG</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const CHANNELS = [{"catchup": true, "id": "847.sweettv", "channel_id": 847, "name": "Jednotka HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDHQMIBCNABA====/847-jednotka-hd.png", "groups": ["Národné"]}, {"catchup": true, "id": "848.sweettv", "channel_id": 848, "name": "Dvojka HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDIAMIBCNABA====/848-dvojka-hd.png", "groups": ["Národné"]}, {"catchup": true, "id": "3787.sweettv", "channel_id": 3787, "name": "MEGAHIT HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDFR2IBCNABA====/3787-mega-hit-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3583.sweettv", "channel_id": 3583, "name": "Svetové hity HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD7RWIBCNABA====/3583-worldwide-hits-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2981.sweettv", "channel_id": 2981, "name": "Najlepšie filmy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCSROIBCNABA====/2981-top-movies-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2488.sweettv", "channel_id": 2488, "name": "Cestovanie a dobrodružstvo HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC4BGIBCNABA====/2488-travel-adventures-hd.png", "groups": ["Cestovateľské"]}, {"catchup": true, "id": "3257.sweettv", "channel_id": 3257, "name": "Svet naruby HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC4RSIBCNABA====/3257-the-world-inside-out-hd.png", "groups": ["Cestovateľské"]}, {"catchup": true, "id": "3399.sweettv", "channel_id": 3399, "name": "Šmolkovia HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDDRUIBCNABA====/3399-smurfs-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3599.sweettv", "channel_id": 3599, "name": "Labková patrola HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCHRYIBCNABA====/3599-paw-patrol-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3825.sweettv", "channel_id": 3825, "name": "Premium ACTION HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDYR2IBCNABA====/3825-premium-action-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3829.sweettv", "channel_id": 3829, "name": "Premium COMEDY HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD2R2IBCNABA====/3829-premium-comedy-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3833.sweettv", "channel_id": 3833, "name": "Premium THRILLER HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD4R2IBCNABA====/3833-premium-thriller-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3831.sweettv", "channel_id": 3831, "name": "Premium DRAMA HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD3R2IBCNABA====/3831-premium-drama-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3828.sweettv", "channel_id": 3828, "name": "PREMIERE HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD2B2IBCNABA====/3828-premiere-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3315.sweettv", "channel_id": 3315, "name": "Nemocnice Hope HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDZRSIBCNABA====/3315-saving-hope-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3642.sweettv", "channel_id": 3642, "name": "Hry o peniaze HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC5BYIBCNABA====/3642-money-games-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "849.sweettv", "channel_id": 849, "name": ":24 HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDIQMIBCNABA====/849-24-hd.png", "groups": ["Spravodajské", "Národné"]}, {"catchup": false, "id": "850.sweettv", "channel_id": 850, "name": ":Šport HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDJAMIBCNABA====/850-sport-hd.png", "groups": ["Športové"]}, {"catchup": true, "id": "3578.sweettv", "channel_id": 3578, "name": "Dobrodružný kaleidoskop HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD5BWIBCNABA====/3578-adventure-caleidoscope-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2006.sweettv", "channel_id": 2006, "name": "Akčná zóna HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDLA6IBCNABA====/2006-action-zone-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3824.sweettv", "channel_id": 3824, "name": "Action Plus HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDYB2IBCNABA====/3824-action-plus-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2007.sweettv", "channel_id": 2007, "name": "Komediálny vesmír HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDLQ6IBCNABA====/2007-comedy-universe-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3775.sweettv", "channel_id": 3775, "name": "Romantika HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC7R2IBCNABA====/3775-romance-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3830.sweettv", "channel_id": 3830, "name": "Svet zločinu HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD3B2IBCNABA====/3830-crime-tv-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3581.sweettv", "channel_id": 3581, "name": "Big Steps HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD6RWIBCNABA====/3581-big-steps-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2005.sweettv", "channel_id": 2005, "name": "Rodinná zábava HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDKQ6IBCNABA====/2005-family-fun-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2008.sweettv", "channel_id": 2008, "name": "Skutočná dráma HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDMA6IBCNABA====/2008-real-drama-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2009.sweettv", "channel_id": 2009, "name": "Čas na thriller HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDMQ6IBCNABA====/2009-thriller-time-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3790.sweettv", "channel_id": 3790, "name": "Thriller Plus HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDHB2IBCNABA====/3790-thriller-plus-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3826.sweettv", "channel_id": 3826, "name": "Sci-Fi & Fantázia HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDZB2IBCNABA====/3826-sci-fi-fantasy-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "3479.sweettv", "channel_id": 3479, "name": "Strašidelný svet HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCLRWIBCNABA====/3479-horror-land-hd.png", "groups": ["Filmové"]}, {"catchup": true, "id": "2318.sweettv", "channel_id": 2318, "name": "Zmapované vraždy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCHBEIBCNABA====/2318-murder-maps-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2323.sweettv", "channel_id": 2323, "name": "Politické dejiny HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCJREIBCNABA====/2323-political-history-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2331.sweettv", "channel_id": 2331, "name": "Prezidenti a vodcovia HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCNREIBCNABA====/2331-presidents-leaders-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2648.sweettv", "channel_id": 2648, "name": "Men With The Pot HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDMBIIBCNABA====/2648-men-with-the-pot-hd.png", "groups": ["Kuchárske"]}, {"catchup": true, "id": "3621.sweettv", "channel_id": 3621, "name": "SpongeBob v šortkách HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCSRYIBCNABA====/3621-undersea-adventures-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3517.sweettv", "channel_id": 3517, "name": "Mattel Junior HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC6RWIBCNABA====/3517-mattel-junior-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3633.sweettv", "channel_id": 3633, "name": "Rodinka Hlučných HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCYRYIBCNABA====/3633-toon-town-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3606.sweettv", "channel_id": 3606, "name": "Ninja Korytnačky HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCLBYIBCNABA====/3606-ninja-action-channel-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3649.sweettv", "channel_id": 3649, "name": "Trace Sport Stars HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDARYIBCNABA====/3649-trace-sport-stars-hd.png", "groups": ["Športové"]}, {"catchup": true, "id": "3784.sweettv", "channel_id": 3784, "name": "World of free sports HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDEB2IBCNABA====/3784-world-of-free-sports-hd.png", "groups": ["Športové"]}, {"catchup": true, "id": "3098.sweettv", "channel_id": 3098, "name": "Unbeaten Channel HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCNBQIBCNABA====/3098-unbeaten-channel-hd.png", "groups": ["Športové"]}, {"catchup": true, "id": "3128.sweettv", "channel_id": 3128, "name": "Športový rybolov HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC4BQIBCNABA====/3128-sport-fishing-hd.png", "groups": ["Športové"]}, {"catchup": true, "id": "3009.sweettv", "channel_id": 3009, "name": "Pravda o športe HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDAROIBCNABA====/3009-truth-about-sports-hd.png", "groups": ["Športové"]}, {"catchup": false, "id": "1918.sweettv", "channel_id": 1918, "name": "Cars & Stars HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD7A4IBCNABA====/1918-cars-stars-hd.png", "groups": ["Športové"]}, {"catchup": true, "id": "3319.sweettv", "channel_id": 3319, "name": "Cooking with Byron Talbott HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD3RSIBCNABA====/3319-cooking-with-byron-talbott-hd.png", "groups": ["Kuchárske"]}, {"catchup": true, "id": "2322.sweettv", "channel_id": 2322, "name": "Historické postavy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCJBEIBCNABA====/2322-historical-figures-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "3560.sweettv", "channel_id": 3560, "name": "Science & Innovation HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDUBWIBCNABA====/3560-science-and-innovation-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "3605.sweettv", "channel_id": 3605, "name": "Filmové legendy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCKRYIBCNABA====/3605-movie-legends-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2321.sweettv", "channel_id": 2321, "name": "Dejiny módy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCIREIBCNABA====/2321-fashion-history-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "3162.sweettv", "channel_id": 3162, "name": "Hollywoodske príbehy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDNBQIBCNABA====/3162-hollywood-stories-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2320.sweettv", "channel_id": 2320, "name": "Filmové hviezdy HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCIBEIBCNABA====/2320-movie-stars-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2319.sweettv", "channel_id": 2319, "name": "Video killed the radio stars HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCHREIBCNABA====/2319-video-killed-the-radio-star-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2329.sweettv", "channel_id": 2329, "name": "Monarchie a dynastie HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCMREIBCNABA====/2329-monarchies-dynasties-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2330.sweettv", "channel_id": 2330, "name": "Zlodeji strateného umenia HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCNBEIBCNABA====/2330-raiders-of-the-lost-art-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2328.sweettv", "channel_id": 2328, "name": "Legendy opery HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCMBEIBCNABA====/2328-legends-of-the-opera-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2338.sweettv", "channel_id": 2338, "name": "Svetové osobnosti HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCRBEIBCNABA====/2338-world-s-personalities-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2337.sweettv", "channel_id": 2337, "name": "Mýty a monštrá HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCQREIBCNABA====/2337-myths-monsters-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "2659.sweettv", "channel_id": 2659, "name": "Pure Nature HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDRRIIBCNABA====/2659-pure-nature-hd.png", "groups": ["Dokumentárne"]}, {"catchup": true, "id": "3443.sweettv", "channel_id": 3443, "name": "Talking Tom Shorts HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDZRUIBCNABA====/3443-talking-tom-shorts-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3110.sweettv", "channel_id": 3110, "name": "Cocobi TV. Song HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCTBQIBCNABA====/3110-cocobi-tv-song-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3109.sweettv", "channel_id": 3109, "name": "Cocobi TV. Fun Play HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCSRQIBCNABA====/3109-cocobi-tv-fun-play-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3541.sweettv", "channel_id": 3541, "name": "Dobrodružstvá s kamarátmi HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDKRWIBCNABA====/3541-test-channel.png", "groups": ["Detské"]}, {"catchup": true, "id": "3591.sweettv", "channel_id": 3591, "name": "BABY SHARK TV HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCDRYIBCNABA====/3591-baby-shark-tv-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3453.sweettv", "channel_id": 3453, "name": "Blip TV HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD6RUIBCNABA====/3453-blip-tv-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3487.sweettv", "channel_id": 3487, "name": "Magical Smile TV HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCPRWIBCNABA====/3487-magical-smile-tv-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3474.sweettv", "channel_id": 3474, "name": "Family Entertainment TV HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCJBWIBCNABA====/3474-family-entertainment-tv-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "3339.sweettv", "channel_id": 3339, "name": "English club HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCFRUIBCNABA====/3339-english-club.png", "groups": ["Detské"]}, {"catchup": true, "id": "2105.sweettv", "channel_id": 2105, "name": "Da Vinci: Objavujte svet HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BC4RAIBCNABA====/2105-da-vinci-explore-the-world-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "2114.sweettv", "channel_id": 2114, "name": "Da Vinci: Operácia Ouch HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDBBAIBCNABA====/2114-da-vinci-operation-ouch-hd.png", "groups": ["Detské"]}, {"catchup": true, "id": "2099.sweettv", "channel_id": 2099, "name": "Da Vinci: Zábavné učenie HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCZRAIBCNABA====/2099-da-vinci-fun-learning-hd.png", "groups": ["Detské"]}, {"catchup": false, "id": "1360.sweettv", "channel_id": 1360, "name": "France 24 English HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDIAUIBCNABA====/1360-france-24-english-hd.png", "groups": ["Spravodajské"]}, {"catchup": true, "id": "3687.sweettv", "channel_id": 3687, "name": "Trace Urban HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDTRYIBCNABA====/3687-trace-urban-hd.png", "groups": ["Hudobné"]}, {"catchup": true, "id": "3715.sweettv", "channel_id": 3715, "name": "Trace UK HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCBR2IBCNABA====/3715-trace-uk-hd.png", "groups": ["Hudobné"]}, {"catchup": true, "id": "3712.sweettv", "channel_id": 3712, "name": "Trace Brasil HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCAB2IBCNABA====/3712-trace-brasil-hd.png", "groups": ["Hudobné"]}, {"catchup": true, "id": "3684.sweettv", "channel_id": 3684, "name": "Trace Latina HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BDSBYIBCNABA====/3684-trace-latina-hd.png", "groups": ["Hudobné"]}, {"catchup": true, "id": "2302.sweettv", "channel_id": 2302, "name": "Živá hudba z Londýna HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BD7BCIBCNABA====/2302-london-live-music-hd.png", "groups": ["Hudobné"]}, {"catchup": true, "id": "2307.sweettv", "channel_id": 2307, "name": "Živé popové koncerty v HD", "logo": "http://staticeu.sweet.tv/images/cache/channel_icons/BCBREIBCNABA====/2307-livepop-concerts-hd.png", "groups": ["Hudobné"]}];
+
+const CATEGORIES = [
+  { id: 'all',           label: 'Všetky',       icon: '📺' },
+  { id: 'Národné',      label: 'Národné',       icon: '🇸🇰' },
+  { id: 'Filmové',      label: 'Filmové',        icon: '🎬' },
+  { id: 'Dokumentárne', label: 'Dokumentárne',   icon: '🎥' },
+  { id: 'Športové',     label: 'Športové',       icon: '⚽' },
+  { id: 'Detské',       label: 'Detské',         icon: '🧸' },
+  { id: 'Hudobné',      label: 'Hudobné',        icon: '🎵' },
+  { id: 'Spravodajské', label: 'Spravodajské',   icon: '📰' },
+  { id: 'Cestovateľské',label: 'Cestovateľské',  icon: '✈️' },
+  { id: 'Kuchárske',    label: 'Kuchárske',      icon: '👨‍🍳' },
+];
+
+const EPG_URL = 'https://sepg.tvmobile.workers.dev/epg';
+const APP_VER = '3.7.1';
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let currentCat  = 'all';
+let currentCh   = null;
+let currentTab  = 'live';
+let epgData     = {};   // channel_id → [{start, stop, title, epg_id}]
+let epgLoaded   = false;
+let hlsInstance = null;
+let activeEpgItem = null;  // currently playing archive item el
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('sk-SK', {hour:'2-digit', minute:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── EPG LOAD ──────────────────────────────────────────────────────────────────
+async function loadEpg() {
+  try {
+    const resp = await fetch(EPG_URL);
+    if (!resp.ok) return;
+    const text = await resp.text();
+    parseEpg(text);
+  } catch(e) { /* silent */ }
+}
+
+function parseEpg(xmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  const progs = doc.querySelectorAll('programme');
+  progs.forEach(p => {
+    const chId = p.getAttribute('channel') || '';
+    const m = chId.match(/^(\d+)\./);
+    if (!m) return;
+    const cid = parseInt(m[1]);
+    const start = parseEpgDate(p.getAttribute('start'));
+    const stop  = parseEpgDate(p.getAttribute('stop'));
+    const title = p.querySelector('title')?.textContent || '';
+    const epgId = p.getAttribute('catchup-id') || p.getAttribute('start') || '';
+    if (!epgData[cid]) epgData[cid] = [];
+    epgData[cid].push({ start, stop, title, epg_id: epgId });
+  });
+  epgLoaded = true;
+  // Update currently displayed channel
+  if (currentCh) updateEpgDisplay();
+  // Update now-playing in channel list
+  renderChannels(currentCat);
+}
+
+function parseEpgDate(str) {
+  if (!str) return null;
+  // Format: 20250408123000 +0200
+  const clean = str.trim().replace(/\s.*/, '');
+  const tz = str.includes('+') ? str.split('+')[1] : (str.includes('-') && str.indexOf('-') > 8 ? str.split('-').pop() : '0000');
+  const y = clean.substr(0,4), mo = clean.substr(4,2), d = clean.substr(6,2);
+  const h = clean.substr(8,2), mi = clean.substr(10,2), s = clean.substr(12,2)||'00';
+  const tzH = parseInt(tz.substr(0,2)||0), tzM = parseInt(tz.substr(2,2)||0);
+  const sign = str.includes('+') ? -1 : 1;
+  const dt = new Date(Date.UTC(y,mo-1,d,h,mi,s));
+  dt.setMinutes(dt.getMinutes() + sign*(tzH*60+tzM));
+  return dt;
+}
+
+function getNowProgram(channelId) {
+  const progs = epgData[channelId];
+  if (!progs) return null;
+  const now = new Date();
+  return progs.find(p => p.start <= now && p.stop > now) || null;
+}
+
+// ── CATEGORIES ────────────────────────────────────────────────────────────────
+function countCat(id) {
+  if (id === 'all') return CHANNELS.length;
+  return CHANNELS.filter(c => c.groups.includes(id)).length;
+}
+
+function buildCategories() {
+  const list = document.getElementById('cat-list');
+  list.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const cnt = countCat(cat.id);
+    if (cnt === 0 && cat.id !== 'all') return;
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (cat.id === currentCat ? ' active' : '');
+    btn.innerHTML = `<span class="cat-icon">${cat.icon}</span><span>${cat.label}</span><span class="cat-count">${cnt}</span>`;
+    btn.onclick = () => selectCat(cat.id, cat.label);
+    list.appendChild(btn);
+  });
+}
+
+function selectCat(id, label) {
+  currentCat = id;
+  buildCategories();
+  renderChannels(id);
+  document.getElementById('cat-heading').textContent = id === 'all' ? 'Všetky kanály' : label;
+}
+
+// ── CHANNEL LIST ──────────────────────────────────────────────────────────────
+function getFilteredChannels(cat) {
+  let chs = cat === 'all' ? CHANNELS : CHANNELS.filter(c => c.groups.includes(cat));
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  if (q) chs = chs.filter(c => c.name.toLowerCase().includes(q));
+  return chs;
+}
+
+function renderChannels(cat) {
+  const chs = getFilteredChannels(cat);
+  const list = document.getElementById('ch-list');
+  document.getElementById('ch-count-label').textContent = chs.length + ' kanálov';
+  list.innerHTML = '';
+  chs.forEach(ch => {
+    const now = getNowProgram(ch.channel_id);
+    const card = document.createElement('div');
+    card.className = 'ch-card' + (currentCh?.channel_id === ch.channel_id ? ' active' : '');
+    card.dataset.chid = ch.channel_id;
+    card.innerHTML = `
+      <div class="ch-logo-wrap">
+        <img class="ch-logo" src="${ch.logo}" alt="" onerror="this.style.display='none'">
+      </div>
+      <div class="ch-info">
+        <div class="ch-name">${ch.name}</div>
+        <div class="ch-now">${now ? now.title : (epgLoaded ? 'Žiadne EPG' : 'Načítavam…')}</div>
+      </div>
+      ${ch.catchup ? '<span class="ch-badge">ARCHÍV</span>' : ''}
+    `;
+    card.onclick = () => selectChannel(ch);
+    list.appendChild(card);
+  });
+}
+
+// ── PLAYER ────────────────────────────────────────────────────────────────────
+function makeDevice() {
+  return {
+    type: 'DT_AndroidTV',
+    mac: Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':'),
+    uuid: crypto.randomUUID(),
+    firmware: { versionCode: 1301, versionString: APP_VER, modules: [] },
+    sub_type: 'DST_Unknown',
+    screen_info: { width: 1920, height: 1080, aspectRatio: 'AR_16_9' },
+    application: { type: 'AT_SWEET_TV_Player' },
+    vendor: 'unknown',
+    supported_drm: { aes128: false, widevineModular: true, widevineClassic: false, playReady: false, fairPlay: false },
+    guid: '', system: '',
+    system_info: { network_connection_type: 'NCT_Unknown', os_version: '23', total_memory: 2, hardware: '' },
+    advertisingId: crypto.randomUUID(),
+  };
+}
+
+function setStatus(msg, cls='') {
+  const el = document.getElementById('pl-status');
+  el.textContent = msg;
+  el.className = 'player-status' + (cls ? ' '+cls : '');
+}
+
+async function getStreamUrl(channelId, epgId) {
+  const body = {
+    without_auth: true,
+    channel_id: Number(channelId),
+    multistream: true,
+    device: makeDevice(),
+  };
+  if (epgId) body.epg_id = Number(epgId);
+
+  const resp = await fetch('https://api.sweet.tv/TvService/OpenStream.json', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Accept-Language': 'sk',
+      'x-device': `1;22;0;2;${APP_VER}`,
+      'Origin': 'https://sweet.tv',
+      'Referer': 'https://sweet.tv/',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json();
+  if (data.code === 13) throw new Error('Kanál vyžaduje prihlásenie');
+  if (data.result !== 'OK') throw new Error(`API: ${data.result} code=${data.code}`);
+  const host = data.http_stream?.host?.address;
+  const spath = data.http_stream?.url;
+  if (!host || !spath) throw new Error('Chýba stream URL');
+  return `https://${host}${spath}`;
+}
+
+function playUrl(url) {
+  const video = document.getElementById('video');
+  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+
+  if (Hls.isSupported()) {
+    hlsInstance = new Hls({ debug: false, enableWorker: true });
+    hlsInstance.loadSource(url);
+    hlsInstance.attachMedia(video);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+    hlsInstance.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) setStatus('HLS chyba: ' + d.details, 'error');
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.play();
+  } else {
+    setStatus('Prehliadač nepodporuje HLS', 'error');
+  }
+}
+
+async function selectChannel(ch) {
+  currentCh = ch;
+  activeEpgItem = null;
+  // Update active class
+  document.querySelectorAll('.ch-card').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.chid) === ch.channel_id);
+  });
+  document.getElementById('pl-name').textContent = ch.name;
+  setStatus('<span class="spinner"></span>Načítavam…', 'loading');
+  document.getElementById('pl-status').innerHTML = '<span class="spinner"></span>Načítavam…';
+
+  updateEpgDisplay();
+
+  try {
+    const url = await getStreamUrl(ch.channel_id, null);
+    playUrl(url);
+    setStatus('Live', 'live');
+  } catch(e) {
+    setStatus(e.message, 'error');
+  }
+}
+
+// ── EPG DISPLAY ───────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-live').classList.toggle('active', tab === 'live');
+  document.getElementById('tab-archive').classList.toggle('active', tab === 'archive');
+  document.getElementById('archive-ctrl').style.display = tab === 'archive' ? 'flex' : 'none';
+  updateEpgDisplay();
+}
+
+function updateEpgDisplay() {
+  if (currentTab === 'live') showLiveEpg();
+  else showArchiveEpg();
+}
+
+function formatTime(dt) {
+  if (!dt) return '--:--';
+  return dt.toLocaleTimeString('sk-SK', {hour:'2-digit', minute:'2-digit'});
+}
+
+function formatDuration(start, stop) {
+  if (!start || !stop) return '';
+  const mins = Math.round((stop - start) / 60000);
+  return mins + ' min';
+}
+
+function showLiveEpg() {
+  const list = document.getElementById('epg-list');
+  if (!currentCh) { list.innerHTML = '<div class="epg-empty">Vyber kanál</div>'; return; }
+  if (!epgLoaded) { list.innerHTML = '<div class="epg-empty">Načítavam EPG…</div>'; return; }
+
+  const progs = epgData[currentCh.channel_id];
+  if (!progs || progs.length === 0) {
+    list.innerHTML = '<div class="epg-empty">Žiadne EPG pre tento kanál</div>';
+    return;
+  }
+
+  const now = new Date();
+  // Show ~3 hours before and 4 hours after
+  const from = new Date(now.getTime() - 3*3600*1000);
+  const to   = new Date(now.getTime() + 4*3600*1000);
+  const visible = progs.filter(p => p.stop > from && p.start < to);
+  if (visible.length === 0) {
+    list.innerHTML = '<div class="epg-empty">Žiadne programy v tomto čase</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  let scrollTo = null;
+  visible.forEach(p => {
+    const isCurrent = p.start <= now && p.stop > now;
+    const isPast    = p.stop <= now;
+    const hasArch   = currentCh.catchup && isPast && p.epg_id;
+
+    const item = document.createElement('div');
+    item.className = 'epg-item' +
+      (isCurrent ? ' current' : '') +
+      (hasArch ? ' has-archive' : '');
+    item.innerHTML = `
+      <div class="epg-time">${formatTime(p.start)}</div>
+      <div class="epg-body">
+        <div class="epg-title">${p.title}</div>
+        <div class="epg-dur">${formatDuration(p.start, p.stop)}</div>
+      </div>
+      ${hasArch ? '<div class="epg-arch-icon">▶</div>' : ''}
+    `;
+
+    if (hasArch) {
+      item.onclick = () => playArchiveItem(p, item);
+    }
+    if (isCurrent) scrollTo = item;
+    list.appendChild(item);
+  });
+
+  if (scrollTo) setTimeout(() => scrollTo.scrollIntoView({block:'center', behavior:'smooth'}), 100);
+}
+
+async function playArchiveItem(prog, itemEl) {
+  if (!currentCh) return;
+  // parse epg_id — it might be a timestamp string like "20250407140000 +0200"
+  // or a numeric ID
+  let epgId = prog.epg_id;
+  // Try to get numeric epg_id from start time (unix timestamp)
+  if (!epgId && prog.start) epgId = Math.floor(prog.start.getTime() / 1000);
+
+  document.querySelectorAll('.epg-item.playing-archive').forEach(el => el.classList.remove('playing-archive'));
+  itemEl.classList.add('playing-archive');
+  activeEpgItem = itemEl;
+
+  setStatus('Načítavam archív…', 'loading');
+  document.getElementById('pl-status').innerHTML = '<span class="spinner"></span>Načítavam archív: ' + prog.title;
+
+  try {
+    const url = await getStreamUrl(currentCh.channel_id, epgId);
+    playUrl(url);
+    setStatus('Archív: ' + prog.title, 'archive');
+  } catch(e) {
+    itemEl.classList.remove('playing-archive');
+    setStatus(e.message, 'error');
+  }
+}
+
+// Archive tab by date
+function showArchiveEpg() {
+  const dateVal = document.getElementById('arch-date').value;
+  if (!dateVal || !currentCh) {
+    document.getElementById('epg-list').innerHTML = '<div class="epg-empty">Vyber dátum a stlač Načítať</div>';
+    return;
+  }
+  renderArchiveDateEpg(dateVal);
+}
+
+function renderArchiveDateEpg(dateStr) {
+  const list = document.getElementById('epg-list');
+  if (!currentCh) { list.innerHTML = '<div class="epg-empty">Vyber kanál</div>'; return; }
+  if (!epgLoaded) { list.innerHTML = '<div class="epg-empty">Načítavam EPG…</div>'; return; }
+
+  const progs = epgData[currentCh.channel_id];
+  if (!progs) { list.innerHTML = '<div class="epg-empty">Žiadne EPG</div>'; return; }
+
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dayStart = new Date(y, m-1, d, 0, 0, 0);
+  const dayEnd   = new Date(y, m-1, d, 23, 59, 59);
+
+  const dayProgs = progs.filter(p => p.start >= dayStart && p.start <= dayEnd);
+  if (dayProgs.length === 0) {
+    list.innerHTML = '<div class="epg-empty">Žiadne programy pre tento deň</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  dayProgs.forEach(p => {
+    const hasArch = currentCh.catchup && p.epg_id;
+    const item = document.createElement('div');
+    item.className = 'epg-item' + (hasArch ? ' has-archive' : '');
+    item.innerHTML = `
+      <div class="epg-time">${formatTime(p.start)}</div>
+      <div class="epg-body">
+        <div class="epg-title">${p.title}</div>
+        <div class="epg-dur">${formatDuration(p.start, p.stop)}</div>
+      </div>
+      ${hasArch ? '<div class="epg-arch-icon">▶</div>' : ''}
+    `;
+    if (hasArch) item.onclick = () => playArchiveItem(p, item);
+    list.appendChild(item);
+  });
+}
+
+function loadArchiveEpg() {
+  renderArchiveDateEpg(document.getElementById('arch-date').value);
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+document.getElementById('search').addEventListener('input', () => {
+  renderChannels(currentCat);
+  const q = document.getElementById('search').value.trim();
+  if (q) {
+    currentCat = 'all';
+    buildCategories();
+    document.getElementById('cat-heading').textContent = 'Výsledky hľadania';
+  }
+});
+
+// ── ARCHIVE DATE DEFAULT ──────────────────────────────────────────────────────
+(function setDefaultDate() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const str = d.toISOString().split('T')[0];
+  document.getElementById('arch-date').value = str;
+  document.getElementById('arch-date').max = new Date().toISOString().split('T')[0];
+  const minDate = new Date(); minDate.setDate(minDate.getDate() - 7);
+  document.getElementById('arch-date').min = minDate.toISOString().split('T')[0];
+})();
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+buildCategories();
+renderChannels('all');
+loadEpg();
+</script>
+</body>
+</html>
