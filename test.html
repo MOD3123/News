@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sweet.tv player</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    #top { padding: 12px; display: flex; gap: 8px; align-items: center; background: #1a1a1a; flex-wrap: wrap; }
+    #top input { padding: 8px; font-size: 14px; background: #2a2a2a; color: #eee; border: 1px solid #444; border-radius: 4px; width: 160px; }
+    #top button { padding: 8px 16px; font-size: 14px; background: #e63; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    #top button:hover { background: #f74; }
+    #top label { font-size: 13px; color: #aaa; }
+    video { width: 100%; flex: 1; background: #000; }
+    #status { padding: 6px 12px; font-size: 12px; color: #888; background: #1a1a1a; }
+  </style>
+</head>
+<body>
+
+<div id="top">
+  <label>Channel ID</label>
+  <input id="chid" type="number" placeholder="napr. 847" value="847">
+  <label>EPG ID (archív)</label>
+  <input id="epgid" type="number" placeholder="prázdne = live">
+  <button onclick="play()">▶ Play</button>
+</div>
+
+<div id="status">Pripravený</div>
+<video id="video" controls autoplay></video>
+
+<script>
+const APP_VERSION = '3.7.1';
+
+function randomMac() {
+  return Array.from({length:6}, () =>
+    Math.floor(Math.random()*256).toString(16).padStart(2,'0')
+  ).join(':');
+}
+
+const DEVICE = {
+  uuid: crypto.randomUUID(),
+  mac:  randomMac(),
+};
+
+function makeDevice() {
+  return {
+    type: 'DT_AndroidTV',
+    mac:  DEVICE.mac,
+    uuid: DEVICE.uuid,
+    firmware: { versionCode: 1301, versionString: APP_VERSION, modules: [] },
+    sub_type: 'DST_Unknown',
+    screen_info: { width: 1920, height: 1080, aspectRatio: 'AR_16_9' },
+    application: { type: 'AT_SWEET_TV_Player' },
+    vendor: 'unknown',
+    supported_drm: {
+      aes128: false, widevineModular: true,
+      widevineClassic: false, playReady: false, fairPlay: false,
+    },
+    guid: '', system: '',
+    system_info: {
+      network_connection_type: 'NCT_Unknown',
+      os_version: '23', total_memory: 2, hardware: '',
+    },
+    advertisingId: crypto.randomUUID(),
+  };
+}
+
+function status(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+async function getStreamUrl(channelId, epgId) {
+  const body = {
+    without_auth: true,
+    channel_id:   Number(channelId),
+    multistream:  true,
+    device:       makeDevice(),
+  };
+  if (epgId) body.epg_id = Number(epgId);
+
+  const resp = await fetch('https://api.sweet.tv/TvService/OpenStream.json', {
+    method: 'POST',
+    headers: {
+      'Content-Type':    'application/json',
+      'Accept':          'application/json',
+      'Accept-Language': 'sk',
+      'x-device':        `1;22;0;2;${APP_VERSION}`,
+      'Origin':          'https://sweet.tv',
+      'Referer':         'https://sweet.tv/',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await resp.json();
+  if (data.code === 13) throw new Error('Kanál vyžaduje prihlásenie');
+  if (data.result !== 'OK') throw new Error(`API: ${data.result} code=${data.code}`);
+
+  const host  = data.http_stream?.host?.address ?? '';
+  const spath = data.http_stream?.url ?? '';
+  if (!host || !spath) throw new Error('Chýba stream URL v odpovedi');
+  return `https://${host}${spath}`;
+}
+
+let hls;
+
+async function play() {
+  const chid  = document.getElementById('chid').value.trim();
+  const epgid = document.getElementById('epgid').value.trim();
+  const video = document.getElementById('video');
+
+  if (!chid) { status('Zadaj Channel ID'); return; }
+
+  if (hls) { hls.destroy(); hls = null; }
+  video.src = '';
+
+  const mode = epgid ? `archív EPG ${epgid}` : 'live';
+  status(`Načítavam ${mode} pre kanál ${chid}…`);
+
+  let url;
+  try {
+    url = await getStreamUrl(chid, epgid);
+    status(`Stream: ${url}`);
+  } catch(e) {
+    status(`Chyba: ${e.message}`);
+    return;
+  }
+
+  if (Hls.isSupported()) {
+    hls = new Hls({ debug: false });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.play();
+      status(`Hrá • ${mode} • kanál ${chid}`);
+    });
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) status(`HLS chyba: ${d.type} – ${d.details}`);
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.play();
+    status(`Hrá (native HLS) • ${mode} • kanál ${chid}`);
+  } else {
+    status('HLS nie je podporované v tomto browseri');
+  }
+}
+</script>
+</body>
+</html>
